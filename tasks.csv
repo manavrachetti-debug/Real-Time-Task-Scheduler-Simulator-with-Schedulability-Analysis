@@ -1,4 +1,4 @@
-TaskID,Period,ExecutionTime,Deadline
-1,10,2,10
-2,20,5,20
-3,40,10,40
+id,name,period_ms,exec_time_ms
+1,Sensor_A,10,2
+2,Sensor_B,20,4
+3,Controller_C,40,8

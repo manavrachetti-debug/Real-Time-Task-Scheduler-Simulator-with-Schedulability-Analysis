@@ -1,27 +1,18 @@
-# Project Proposal: Real-Time Task Scheduler Simulator with Schedulability Analysis
+# Project Proposal: Real-Time Task Scheduler Simulator & Schedulability Analyzer
 
-## 1. Problem Statement & Scenario
-In embedded and real-time systems (such as automotive control units or industrial sensor nodes), tasks must execute within strict time constraints. Missing a deadline can cause system instability or hardware failure. 
+## 1. Problem Statement
+In hard real-time embedded systems (such as automotive controllers, avionics, and industrial sensor loops), missing a task's periodic deadline can lead to system failure. Verifying whether a set of periodic tasks can meet all deadlines requires both mathematical schedulability tests and cycle-accurate execution simulation.
 
-This project implements a discrete-time Real-Time Operating System (RTOS) task scheduler simulator in C to evaluate task set schedulability under two primary scheduling algorithms:
-- **Rate Monotonic Scheduling (RMS):** Static priority policy based on task periods.
-- **Earliest Deadline First (EDF):** Dynamic priority policy based on absolute deadlines.
+## 2. Proposed Solution
+This project implements a standalone C11 command-line simulator and analytical verifier supporting two canonical uniprocessor real-time scheduling algorithms:
+* **Rate Monotonic Scheduling (RMS):** Static priority assignment inversely proportional to task period ($T_i$), verified against the Liu & Layland utilization bound $U \le n(2^{1/n} - 1)$.
+* **Earliest Deadline First (EDF):** Dynamic priority assignment based on the nearest absolute deadline ($d_k = r_k + T_i$), verified against the exact processor utilization threshold $U \le 1.0$.
 
-## 2. Functional Requirements (FR)
-- **FR-01:** Read task configurations (Task ID, Period, Execution Time, Relative Deadline) from a CSV file.
-- **FR-02:** Validate input parameters (ensure $C_i \le T_i$, positive values, valid period ratios).
-- **FR-03:** Implement a hand-written Min-Heap priority queue to manage active job instances efficiently.
-- **FR-04:** Simulate task execution over a defined hyperperiod ($H = \text{LCM}(T_1, T_2, \dots, T_n)$).
-- **FR-05:** Detect and log deadline misses during execution.
-- **FR-06:** Compute total CPU utilization ($U = \sum \frac{C_i}{T_i}$) and compare RMS against the Liu & Layland bound ($U_{bound} = n(2^{1/n} - 1)$).
-- **FR-07:** Export execution timeline logs and summary statistics to an output text file.
+## 3. Core Functional Scope
+1. **Strict Input & CSV Ingestion:** Load task sets from structured CSV files or interactive console prompts with full boundary validation (`MAX_TASKS = 20`, `MAX_PERIOD_MS = 1000`, `MAX_HYPERPERIOD_MS = 10000`).
+2. **Dynamic Binary Min-Heap:** Custom $O(\log n)$ priority queue supporting pluggable comparator functions (`compare_rms` and `compare_edf`).
+3. **Hyperperiod Discrete Simulation:** Simulates every 1 ms tick across $[0, \text{LCM}(T_1, \dots, T_n))$, tracking preemptions, context switches, response times, and deadline misses.
+4. **Automated Reporting & Side-by-Side Comparison:** Generates ASCII execution timelines, per-task statistics tables, and persistent `.txt` reports.
 
-## 3. Architecture & Module Structure
-The simulator consists of modular C units:
-1. `validation.c / .h`: Validates CSV input and mathematical feasibility constraints.
-2. `file_handler.c / .h`: Parses input CSV files and formats report output.
-3. `priority_queue.c / .h`: Hand-written Min-Heap data structure for job queueing.
-4. `scheduler.c / .h`: Core simulation loop handling time increments, job releases, and context switching.
-5. `analysis.c / .h`: Computes CPU utilization, hyperperiods, and schedulability bounds.
-6. `report.c / .h`: Generates Gantt-style text timelines and metrics summaries.
-7. `main.c`: CLI entry point for running simulations.
+## 4. Verification Plan
+Every core module (`validation`, `file_handler`, `priority_queue`, `analysis`, `scheduler`, `report`) is verified through an automated C unit test suite (`tests/test_runner.c`) testing positive cases, boundary conditions, and error handling paths.

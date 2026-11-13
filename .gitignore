@@ -1,11 +1,16 @@
-# Compiled binaries and object files
+# Compiled object files and executables
 *.o
-*.out
+*.obj
 *.exe
-build/
-bin/
+*.out
+scheduler_sim
+test_runner
 
-# IDE and editor files
+# Generated simulation logs and reports
+*.txt
+!docs/*.txt
+
+# IDE and OS files
 .vscode/
-.idea/
-*.swp
+.DS_Store
+Thumbs.db

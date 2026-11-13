@@ -1,74 +1,185 @@
-#include "../include/priority_queue.h"
-#include <stdio.h>
+#include <limits.h>
+#include <stdlib.h>
+#include "priority_queue.h"
 
-void heap_init(MinHeap *hp, SchedPolicy policy) {
-    hp->size = 0;
-    hp->policy = policy;
-}
-
-int is_higher_priority(Job j1, Job j2, SchedPolicy policy) {
-    if (policy == SCHED_EDF) {
-        if (j1.absolute_deadline != j2.absolute_deadline) {
-            return j1.absolute_deadline < j2.absolute_deadline;
-        }
-    }
-    return j1.task_id < j2.task_id;
-}
-
-static void swap(Job *a, Job *b) {
+static void swap_jobs(Job *a, Job *b)
+{
     Job temp = *a;
     *a = *b;
     *b = temp;
 }
 
-int heap_push(MinHeap *hp, Job job) {
-    if (hp->size >= MAX_JOBS) {
-        return 0; // Overflow
-    }
-    
-    int curr = hp->size;
-    hp->data[curr] = job;
-    hp->size++;
+static void sift_up(PriorityQueue *pq, int index)
+{
+    int parent;
 
-    while (curr > 0) {
-        int parent = (curr - 1) / 2;
-        if (is_higher_priority(hp->data[curr], hp->data[parent], hp->policy)) {
-            swap(&hp->data[curr], &hp->data[parent]);
-            curr = parent;
+    while (index > 0) {
+        parent = (index - 1) / 2;
+        if (pq->compare(&pq->items[index], &pq->items[parent]) < 0) {
+            swap_jobs(&pq->items[index], &pq->items[parent]);
+            index = parent;
         } else {
             break;
         }
     }
-    return 1;
 }
 
-Job heap_pop(MinHeap *hp) {
-    Job empty = {-1, -1, -1, -1};
-    if (hp->size <= 0) {
-        return empty; // Underflow
-    }
+static void sift_down(PriorityQueue *pq, int index)
+{
+    int left;
+    int right;
+    int best;
 
-    Job root = hp->data[0];
-    hp->size--;
-    hp->data[0] = hp->data[hp->size];
+    for (;;) {
+        left = 2 * index + 1;
+        right = left + 1;
+        best = index;
 
-    int curr = 0;
-    while ((2 * curr + 1) < hp->size) {
-        int left = 2 * curr + 1;
-        int right = left + 1;
-        int target = left;
-
-        if (right < hp->size && is_higher_priority(hp->data[right], hp->data[left], hp->policy)) {
-            target = right;
+        if (left < pq->size &&
+            pq->compare(&pq->items[left], &pq->items[best]) < 0) {
+            best = left;
         }
 
-        if (is_higher_priority(hp->data[target], hp->data[curr], hp->policy)) {
-            swap(&hp->data[target], &hp->data[curr]);
-            curr = target;
-        } else {
+        if (right < pq->size &&
+            pq->compare(&pq->items[right], &pq->items[best]) < 0) {
+            best = right;
+        }
+
+        if (best == index) {
             break;
         }
+
+        swap_jobs(&pq->items[index], &pq->items[best]);
+        index = best;
+    }
+}
+
+StatusCode pq_init(PriorityQueue *pq, int initial_capacity, JobCompare compare)
+{
+    if (pq == NULL || compare == NULL) {
+        return ERR_NULL_POINTER;
     }
 
-    return root;
+    pq->items = NULL;
+    pq->size = 0;
+    pq->capacity = 0;
+    pq->compare = NULL;
+
+    if (initial_capacity < 1) {
+        return ERR_INVALID_NUMBER;
+    }
+
+    pq->items = (Job *)malloc((size_t)initial_capacity * sizeof(Job));
+    if (pq->items == NULL) {
+        return ERR_MEMORY;
+    }
+
+    pq->capacity = initial_capacity;
+    pq->compare = compare;
+    return STATUS_OK;
+}
+
+StatusCode pq_push(PriorityQueue *pq, const Job *job)
+{
+    Job *grown;
+    int new_capacity;
+
+    if (pq == NULL || job == NULL || pq->items == NULL ||
+        pq->compare == NULL) {
+        return ERR_NULL_POINTER;
+    }
+
+    if (pq->size >= pq->capacity) {
+        if (pq->capacity > INT_MAX / 2) {
+            return ERR_MEMORY;
+        }
+
+        new_capacity = pq->capacity * 2;
+        grown = (Job *)realloc(pq->items, (size_t)new_capacity * sizeof(Job));
+        if (grown == NULL) {
+            return ERR_MEMORY;
+        }
+
+        pq->items = grown;
+        pq->capacity = new_capacity;
+    }
+
+    pq->items[pq->size] = *job;
+    pq->size++;
+    sift_up(pq, pq->size - 1);
+    return STATUS_OK;
+}
+
+StatusCode pq_pop(PriorityQueue *pq, Job *out)
+{
+    if (pq == NULL || out == NULL) {
+        return ERR_NULL_POINTER;
+    }
+
+    if (pq->size <= 0) {
+        return ERR_HEAP_EMPTY;
+    }
+
+    if (pq->items == NULL || pq->compare == NULL) {
+        return ERR_NULL_POINTER;
+    }
+
+    *out = pq->items[0];
+    pq->size--;
+
+    if (pq->size > 0) {
+        pq->items[0] = pq->items[pq->size];
+        sift_down(pq, 0);
+    }
+
+    return STATUS_OK;
+}
+
+StatusCode pq_peek(const PriorityQueue *pq, Job *out)
+{
+    if (pq == NULL || out == NULL) {
+        return ERR_NULL_POINTER;
+    }
+
+    if (pq->size <= 0) {
+        return ERR_HEAP_EMPTY;
+    }
+
+    if (pq->items == NULL) {
+        return ERR_NULL_POINTER;
+    }
+
+    *out = pq->items[0];
+    return STATUS_OK;
+}
+
+int pq_is_empty(const PriorityQueue *pq)
+{
+    if (pq == NULL) {
+        return 1;
+    }
+
+    return pq->size <= 0;
+}
+
+int pq_size(const PriorityQueue *pq)
+{
+    if (pq == NULL) {
+        return 0;
+    }
+
+    return pq->size;
+}
+
+void pq_free(PriorityQueue *pq)
+{
+    if (pq == NULL) {
+        return;
+    }
+
+    free(pq->items);
+    pq->items = NULL;
+    pq->size = 0;
+    pq->capacity = 0;
+    pq->compare = NULL;
 }

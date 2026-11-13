@@ -1,31 +1,38 @@
 #ifndef PRIORITY_QUEUE_H
 #define PRIORITY_QUEUE_H
 
-typedef enum {
-    SCHED_RMS,
-    SCHED_EDF
-} SchedPolicy;
+#include "validation.h"
 
 typedef struct {
-    int task_id;
+    int task_index;
+    int job_number;
+    int release_time;
     int absolute_deadline;
     int remaining_time;
-    int release_time;
+    int period_ms;
 } Job;
 
-#define MAX_JOBS 100
+typedef int (*JobCompare)(const Job *a, const Job *b);
 
-// THIS IS THE MIN-HEAP STRUCTURE FROM YOUR DESIGN DOC
 typedef struct {
-    Job data[MAX_JOBS];
+    Job *items;
     int size;
-    SchedPolicy policy;
-} MinHeap;
+    int capacity;
+    JobCompare compare;
+} PriorityQueue;
 
-// Function Prototypes
-void heap_init(MinHeap *hp, SchedPolicy policy);
-int heap_push(MinHeap *hp, Job job);
-Job heap_pop(MinHeap *hp);
-int is_higher_priority(Job j1, Job j2, SchedPolicy policy);
+StatusCode pq_init(PriorityQueue *pq, int initial_capacity, JobCompare compare);
+
+StatusCode pq_push(PriorityQueue *pq, const Job *job);
+
+StatusCode pq_pop(PriorityQueue *pq, Job *out);
+
+StatusCode pq_peek(const PriorityQueue *pq, Job *out);
+
+int pq_is_empty(const PriorityQueue *pq);
+
+int pq_size(const PriorityQueue *pq);
+
+void pq_free(PriorityQueue *pq);
 
 #endif
